@@ -16,8 +16,13 @@ const newChatBtn = document.getElementById("new-chat");
 const menuBtn = document.getElementById("menu-btn");
 const sidebar = document.getElementById("sidebar");
 const backdrop = document.getElementById("backdrop");
+const selectBar = document.getElementById("select-bar");
+const selectCancelBtn = document.getElementById("select-cancel");
+const selectDeleteBtn = document.getElementById("select-delete");
 
 let state = loadState();
+let selectMode = false;
+const selectedIds = new Set();
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -42,8 +47,9 @@ function normalizeState(parsed) {
     const chat = createChat();
     return { activeId: chat.id, chats: [chat] };
   }
-  const activeId =
-    chats.some((c) => c.id === parsed.activeId) ? parsed.activeId : chats[0].id;
+  const activeId = chats.some((c) => c.id === parsed.activeId)
+    ? parsed.activeId
+    : chats[0].id;
   return { activeId, chats };
 }
 
@@ -92,6 +98,39 @@ function closeAllChatMenus() {
   });
 }
 
+function updateSelectBar() {
+  const count = selectedIds.size;
+  selectDeleteBtn.disabled = count === 0;
+  selectDeleteBtn.textContent = count ? `Delete (${count})` : "Delete";
+}
+
+function enterSelectMode(initialId) {
+  selectMode = true;
+  selectedIds.clear();
+  if (initialId) selectedIds.add(initialId);
+  closeAllChatMenus();
+  sidebar.classList.add("selecting");
+  selectBar.hidden = false;
+  updateSelectBar();
+  renderChatList();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  sidebar.classList.remove("selecting");
+  selectBar.hidden = true;
+  updateSelectBar();
+  renderChatList();
+}
+
+function toggleSelected(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateSelectBar();
+  renderChatList();
+}
+
 function renderMessages() {
   const chat = activeChat();
   messagesEl.innerHTML = "";
@@ -127,7 +166,31 @@ function renderChatList() {
 
   for (const chat of chats) {
     const item = document.createElement("div");
-    item.className = `chat-item${chat.id === state.activeId ? " active" : ""}`;
+    const isSelected = selectedIds.has(chat.id);
+    item.className = `chat-item${
+      !selectMode && chat.id === state.activeId ? " active" : ""
+    }${isSelected ? " selected" : ""}`;
+
+    if (selectMode) {
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.className = "chat-check";
+      check.checked = isSelected;
+      check.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleSelected(chat.id);
+      });
+
+      const main = document.createElement("button");
+      main.type = "button";
+      main.className = "chat-item-main";
+      main.textContent = chat.title;
+      main.addEventListener("click", () => toggleSelected(chat.id));
+
+      item.append(check, main);
+      chatListEl.appendChild(item);
+      continue;
+    }
 
     const main = document.createElement("button");
     main.type = "button";
@@ -159,17 +222,111 @@ function renderChatList() {
     menu.className = "chat-menu";
     menu.innerHTML = `
       <button type="button" data-action="rename">Rename</button>
+      <button type="button" data-action="select">Select</button>
       <button type="button" data-action="pin">Pin chat</button>
       <button type="button" class="danger" data-action="delete">Delete</button>
     `;
-    // Menu options are UI-only for now (no handlers).
+    menu.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const action = event.target.closest("button")?.dataset.action;
+      if (action === "delete") {
+        deleteChat(chat.id);
+      } else if (action === "rename") {
+        closeAllChatMenus();
+        beginRename(chat.id, item, main);
+      } else if (action === "select") {
+        enterSelectMode(chat.id);
+      }
+      // pin stays UI-only for now
+    });
 
     item.append(main, more, menu);
     chatListEl.appendChild(item);
   }
 }
 
+function beginRename(id, item, titleBtn) {
+  const chat = state.chats.find((c) => c.id === id);
+  if (!chat) return;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "chat-item-rename";
+  input.value = chat.title;
+  input.maxLength = 60;
+
+  titleBtn.replaceWith(input);
+  item.classList.add("renaming");
+  input.focus();
+  input.select();
+
+  let finished = false;
+
+  function finish(save) {
+    if (finished) return;
+    finished = true;
+    const next = input.value.replace(/\s+/g, " ").trim();
+    if (save && next) {
+      chat.title = next;
+      chat.updatedAt = Date.now();
+      saveState();
+    }
+    renderChatList();
+    renderMessages();
+  }
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+
+  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("click", (event) => event.stopPropagation());
+}
+
+function deleteChat(id) {
+  closeAllChatMenus();
+  if (state.chats.length === 1) {
+    state.chats[0] = createChat();
+    state.activeId = state.chats[0].id;
+  } else {
+    state.chats = state.chats.filter((c) => c.id !== id);
+    if (state.activeId === id) {
+      state.activeId = state.chats[0].id;
+    }
+  }
+  saveState();
+  renderChatList();
+  renderMessages();
+}
+
+function deleteSelectedChats() {
+  if (!selectedIds.size) return;
+
+  const remaining = state.chats.filter((c) => !selectedIds.has(c.id));
+  if (!remaining.length) {
+    const chat = createChat();
+    state.chats = [chat];
+    state.activeId = chat.id;
+  } else {
+    state.chats = remaining;
+    if (!remaining.some((c) => c.id === state.activeId)) {
+      state.activeId = remaining[0].id;
+    }
+  }
+
+  saveState();
+  exitSelectMode();
+  renderMessages();
+}
+
 function startNewChat() {
+  if (selectMode) exitSelectMode();
   closeAllChatMenus();
   const chat = createChat();
   state.chats.unshift(chat);
@@ -221,6 +378,8 @@ form.addEventListener("submit", (event) => {
 
 newChatBtn.addEventListener("click", startNewChat);
 menuBtn.addEventListener("click", openSidebar);
+selectCancelBtn.addEventListener("click", exitSelectMode);
+selectDeleteBtn.addEventListener("click", deleteSelectedChats);
 backdrop.addEventListener("click", () => {
   closeSidebar();
   closeAllChatMenus();

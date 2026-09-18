@@ -82,6 +82,49 @@ button {
   background: var(--hover);
 }
 
+.select-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.select-bar[hidden] {
+  display: none;
+}
+
+.select-cancel,
+.select-delete {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.select-cancel:hover {
+  background: var(--hover);
+}
+
+.select-delete {
+  border-color: #f0c7c3;
+  color: var(--danger);
+}
+
+.select-delete:hover:not(:disabled) {
+  background: #ffe8e8;
+}
+
+.select-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sidebar.selecting .new-chat {
+  display: none;
+}
+
 .chat-list {
   flex: 1;
   overflow-y: auto;
@@ -98,6 +141,22 @@ button {
   grid-template-columns: 1fr auto;
   align-items: center;
   border-radius: 10px;
+}
+
+.sidebar.selecting .chat-item {
+  grid-template-columns: auto 1fr;
+}
+
+.chat-item.selected {
+  background: var(--active);
+}
+
+.chat-check {
+  width: 18px;
+  height: 18px;
+  margin-left: 10px;
+  accent-color: var(--ink);
+  cursor: pointer;
 }
 
 .chat-item.active {
@@ -119,6 +178,28 @@ button {
   text-overflow: ellipsis;
   font-size: 14px;
   border-radius: 10px;
+}
+
+.chat-item-rename {
+  width: 100%;
+  margin: 4px 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.chat-item-rename:focus {
+  border-color: #cfcfcf;
+}
+
+.chat-item.renaming .chat-item-more {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .chat-item-more {
