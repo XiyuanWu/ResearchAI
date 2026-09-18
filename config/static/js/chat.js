@@ -355,7 +355,8 @@ function appendMessage(role, content) {
   renderMessages();
 }
 
-form.addEventListener("submit", (event) => {
+// 3.3 Connect App
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = promptEl.value.trim();
   if (!text) return;
@@ -364,16 +365,25 @@ form.addEventListener("submit", (event) => {
   promptEl.value = "";
   autosize();
   sendBtn.disabled = true;
-
-  // Static page only — placeholder reply until the mock API step.
-  window.setTimeout(() => {
-    appendMessage(
-      "assistant",
-      "This is a static UI preview. Backend chat comes next."
-    );
+  
+  try {
+    const res = await fetch("/chat/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      appendMessage("assistant", data.error || "Request failed.");
+      return;
+    }
+    appendMessage("assistant", data.message || "No reply.");
+  } catch (_) {
+    appendMessage("assistant", "Request failed.");
+  } finally {
     sendBtn.disabled = false;
     promptEl.focus();
-  }, 350);
+  }
 });
 
 newChatBtn.addEventListener("click", startNewChat);
