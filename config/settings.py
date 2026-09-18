@@ -91,6 +91,7 @@ STATICFILES_DIRS = [BASE_DIR / "config" / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Loaded for later steps (real LLM). Not used during setup.
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# # 4.1 Set Up (load api key)
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
