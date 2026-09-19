@@ -3,7 +3,7 @@ from google import genai
 
 # 4.2 LLM Interaction (sent prompt to model)
 # user sent a text to gemini and gemini return a text
-def generate_reponses(message: str) -> str:
+def generate_response(message: str) -> str:
     if not settings.GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is missing")
 
