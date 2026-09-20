@@ -1,5 +1,15 @@
 from django.conf import settings
 from google import genai
+from google.genai import types
+
+# 5.3 Prompting
+SYSTEM_PROMPT = """
+You are ResearchAI, a research assistant for AI engineers.
+Help the user think through research questions clearly.
+Be concise, structured, and honest about uncertainty.
+If context is missing, ask a short clarifying question.
+Do not invent citations or sources.
+""".strip()
 
 # 5.2 Conversation Memory (add conversation context)
 def generate_response(message: str, previous_message: list | None = None) -> str:
@@ -32,6 +42,7 @@ def generate_response(message: str, previous_message: list | None = None) -> str
     response = client.models.generate_content(
         model = settings.GEMINI_MODEL,
         contents = contents,
+        config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT) # pass in prompt
     )
 
     # 5. get text and check response
