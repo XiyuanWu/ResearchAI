@@ -11,6 +11,6 @@ class Conversation(models.Model):
 # store single conversation chat history
 class Message(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name="messages")
-    resolve = models.CharField(max_length=20)
+    role = models.CharField(max_length=20)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
