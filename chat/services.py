@@ -38,7 +38,7 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         "parts": [{"text": message}]
     })
 
-    # 4. first api call - model return text OR a function call
+    # 4.1 first api call - model return text OR a function call
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         tools=TOOLS,
@@ -52,21 +52,21 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         config = config
     )
 
-    # 5. no tool needed, normal answer
+    # 4.2. if no tool needed, normal answer
     if not response.function_calls:
         text = (response.text or "").strip()
         if not text:
             raise ValueError("Empty response from model")
         return text
 
-    # 6. run the tool the model asked for
+    # 5.1 otherwise run the tool
     fc = response.function_calls[0]
     if fc.name == "get_current_time":
         tool_result = get_current_time()
     else:
         tool_result = f"Unknown tool: {fc.name}"
 
-    # 7. append model turn(with function call) + tool result
+    # 5.2. append the tool result to contents
     contents.append(response.candidates[0].content)
     contents.append(types.Content(
         role="user",
@@ -75,7 +75,7 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         ]
     ))
 
-    # 8. second api call - model write as natural language answer
+    # 6. second api call - give back contents to model and model write as natural language answer
     final = client.models.generate_content(
         model=settings.GEMINI_MODEL,
         contents=contents,
