@@ -31,6 +31,7 @@ function uid() {
 function createChat(title = DEFAULT_TITLE) {
   return {
     id: uid(),
+    conversationId: null, // backend Conversation.id
     title,
     updatedAt: Date.now(),
     messages: [],
@@ -40,6 +41,7 @@ function createChat(title = DEFAULT_TITLE) {
 function normalizeState(parsed) {
   const chats = (parsed.chats || []).map((chat) => ({
     ...chat,
+    conversationId: chat.conversationId ?? null,
     title:
       !chat.title || chat.title === "New chat" ? DEFAULT_TITLE : chat.title,
   }));
@@ -355,27 +357,35 @@ function appendMessage(role, content) {
   renderMessages();
 }
 
-// 3.3 Connect App
+// 3.3 Connect App + 5.2 conversation_id
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = promptEl.value.trim();
   if (!text) return;
 
+  const chat = activeChat();
   appendMessage("user", text);
   promptEl.value = "";
   autosize();
   sendBtn.disabled = true;
-  
+
   try {
     const res = await fetch("/chat/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({
+        message: text,
+        conversation_id: chat.conversationId,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
       appendMessage("assistant", data.error || "Request failed.");
       return;
+    }
+    if (data.conversation_id != null) {
+      chat.conversationId = data.conversation_id;
+      saveState();
     }
     appendMessage("assistant", data.message || "No reply.");
   } catch (_) {

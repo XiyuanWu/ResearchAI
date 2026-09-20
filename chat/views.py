@@ -40,12 +40,12 @@ def chat_api(request):
     # 4. load previous message (before saving the new one)
     previous_message = list(conversation.messages.order_by("created_at").values("role", "content"))
     
-    #. 5. save user message
+    # 5. save user message
     Message.objects.create(conversation=conversation, role="user", content=message)
 
     # 6. sent message to model and return model's reply
     try:
-        reply = generate_response(message)
+        reply = generate_response(message, previous_message)
     except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=502)
 
