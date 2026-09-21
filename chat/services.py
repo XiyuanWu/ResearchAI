@@ -3,6 +3,7 @@ from google import genai
 from google.genai import types
 
 from chat.tools import TOOLS, get_current_time
+from chat.retrieval import retrieve_relevant_chunks
 
 # 5.3 Prompting
 SYSTEM_PROMPT = """
@@ -12,6 +13,37 @@ Be concise, structured, and honest about uncertainty.
 If context is missing, ask a short clarifying question.
 Do not invent citations or sources.
 """.strip()
+
+# 7.3 Retrieval & Answering (Answer using retrieved data)
+def build_rag_message(message: str, top_k: int = 3) -> str:
+    relevant_chunks = retrieve_relevant_chunks(message, top_k=top_k)
+    # if no retrieve message, return regular chat mode
+    if not relevant_chunks: return message
+
+    context_parts = []
+    for number, chunk in enumerate(relevant_chunks, start=1):
+        metadata = chunk["metadata"]
+        source = metadata.get("chunk_index", "unknown")
+        chunk_index = metadata.get("chunk_index", "unknown")
+
+        context_parts.append(
+            f"[Context] {number}\n"
+            f"Source: {source}\n"
+            f"Chunk: {chunk_index}\n"
+            f"{chunk["text"]}"
+        )
+
+    context = "\n\n".join(context_parts)
+
+    return f"""
+        Use the retrieved context below when it is relevant to the question.
+        If the context does not contain the answer, clearly say so.
+        Do not invent information or sources.
+        RETRIEVED CONTEXT:
+        {context}
+        USER QUESTION:
+        {message}
+        """.strip()
 
 # 6.2 Tool Execution (return tool result to model)
 def generate_response(message: str, previous_message: list | None = None) -> str:
@@ -33,9 +65,10 @@ def generate_response(message: str, previous_message: list | None = None) -> str
             "parts": [{"text": msg["content"]}]
         })
 
+    rag_message = build_rag_message(message)
     contents.append({
         "role": "user",
-        "parts": [{"text": message}]
+        "parts": [{"text": rag_message}]
     })
 
     # 4.1 first api call - model return text OR a function call
