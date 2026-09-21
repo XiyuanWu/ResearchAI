@@ -1,0 +1,168 @@
+ResearchAI — Internal Knowledge Base (Plain Text Sample)
+========================================================
+Document ID: RA-KB-TXT-001
+Audience: AI engineering interns building a research assistant
+Last updated: 2026-09-20
+Purpose: Longer sample corpus for document loading, chunking, and RAG demos.
+
+
+1. What this product is trying to do
+------------------------------------
+ResearchAI is a chat-first research assistant. A user asks a question in natural
+language. The system should answer using: (a) general model knowledge when that
+is enough, and (b) the user's own materials when the question depends on those
+files. The second path is Retrieval-Augmented Generation, usually shortened to RAG.
+
+Without RAG, a model may invent paper titles, misremember experiment numbers, or
+hallucinate citations. With RAG, the system first finds relevant passages from
+uploaded notes, papers, or lab logs, then asks the model to answer using those
+passages as evidence. The model still generates fluent prose, but the factual
+anchors come from retrieved text.
+
+
+2. End-to-end mental model
+--------------------------
+Offline / ingest path (runs when a file arrives):
+  load file -> validate type -> extract text -> split into chunks -> embed chunks
+  -> store vectors + metadata in a vector index
+
+Online / chat path (runs on every question that needs documents):
+  embed the user question -> search nearest chunks -> build a prompt that includes
+  those chunks -> call the LLM -> return the answer (optionally with sources)
+
+Tools (for example get_current_time) are a different capability. Tools fetch live
+facts the documents cannot know. RAG fetches static or slowly changing knowledge
+from files. A production assistant often needs both.
+
+
+3. Document loading (what "load" really means)
+----------------------------------------------
+Loading is not "attach a binary blob to the chat." Loading means: turn a file into
+plain text the rest of the pipeline can index.
+
+Supported starter formats for this project:
+  - .txt  : already text; read as UTF-8
+  - .md   : Markdown source; usually read as UTF-8 and keep headings as structure
+
+Formats deferred for later milestones:
+  - .pdf  : extract text per page; scanned PDFs need OCR
+  - .docx : parse Word XML paragraphs
+  - .png / .jpg : OCR or a vision model; pixels are not searchable text by default
+
+Backend validation is mandatory even if the UI filters file pickers. Clients can
+be bypassed. Reject unknown suffixes, empty files, and non-UTF-8 text early so
+chunking never sees garbage.
+
+
+4. Why we split text into chunks
+--------------------------------
+Embedding models and prompt windows have limits. A 40-page lab notebook cannot
+be pasted into every request. Chunking cuts a long document into smaller pieces
+so that:
+  - each piece fits the embedding model
+  - retrieval can return only the paragraphs that match the question
+  - the final prompt stays within a budget
+
+Chunking trade-offs beginners should remember:
+  - Too large: retrieval is coarse; irrelevant sentences waste prompt space
+  - Too small: meaning breaks across boundaries; answers feel fragmented
+  - Overlap helps: a sentence that straddles two chunks is less likely to be lost
+
+A simple starter policy for ResearchAI:
+  chunk size around 500-1000 characters (or ~200-400 tokens), with modest overlap
+  (for example 10-20%). Exact numbers can be tuned after you measure retrieval
+  quality on real questions.
+
+
+5. Embeddings and similarity search
+-----------------------------------
+An embedding is a numeric vector that represents semantic meaning. "gradient
+descent learning rate schedule" and "how we annealed the step size" may share
+few keywords but can still land near each other in vector space.
+
+At ingest time, each chunk becomes a vector. At query time, the question becomes
+a vector. The index returns chunks with highest similarity (often cosine similarity
+or inner product, depending on the store).
+
+Important: embeddings are not magic memory. If a fact never appears in any chunk,
+RAG cannot retrieve it. If OCR failed and the PDF text is empty, RAG has nothing
+useful to search.
+
+
+6. Vector databases (conceptual)
+--------------------------------
+A vector database or local index stores:
+  - the embedding vector
+  - the chunk text
+  - metadata such as source filename, chunk index, and maybe page number
+
+Options range from in-process libraries (good for demos) to hosted services
+(good for multi-user production). For an internship project, a local store is
+usually enough to learn the full loop. What matters is the API shape:
+  add(chunks) and search(query_embedding, top_k).
+
+
+7. Retrieval then answering
+---------------------------
+After search returns top_k chunks, the service builds a prompt roughly like:
+
+  System: You are ResearchAI. Prefer the provided context. If the context is
+  insufficient, say what is missing. Do not invent citations.
+
+  Context:
+  [1] (source: sample_research_notes.txt) ...
+  [2] (source: ...) ...
+
+  User question: ...
+
+The model answers in natural language. Good systems also return which sources
+were used so the user can verify claims. Citation quality is part of product
+trust for research workflows.
+
+
+8. Failure modes worth testing
+------------------------------
+  - Wrong file type uploaded (pdf while only txt/md allowed)
+  - Empty or whitespace-only file
+  - Question unrelated to the corpus (retrieval returns weak matches)
+  - Chunk boundaries split a critical table or definition
+  - Prompt too long after stuffing many chunks
+  - Model ignores context and answers from parametric memory anyway
+
+For the last case, tighten the system instruction and keep retrieved context
+near the user question. Also evaluate with questions whose answers exist only
+in the uploaded notes.
+
+
+9. Suggested evaluation questions for this sample
+-------------------------------------------------
+Ask the assistant (once RAG is wired) questions such as:
+  1) What is the difference between the ingest path and the chat path?
+  2) Why does ResearchAI validate file types on the backend?
+  3) What chunking trade-offs should an intern remember?
+  4) How do tools and RAG differ in the mental model above?
+  5) Name two failure modes that can make RAG answers look confident but wrong.
+
+If the system answers these using this document's wording, retrieval is doing
+useful work. If it answers vaguely without matching details, inspect chunking,
+embedding, top_k, or prompt construction.
+
+
+10. Glossary (short)
+--------------------
+RAG: retrieve relevant text, then generate an answer conditioned on it.
+Chunk: a contiguous slice of document text used as the unit of retrieval.
+Embedding: vector representation of text for similarity search.
+top_k: how many nearest chunks to include in the prompt.
+Hallucination: fluent output not grounded in provided evidence or reality.
+OCR: optical character recognition; turns image text into characters.
+Metadata: non-body fields stored with a chunk (source, page, ids).
+
+
+11. Closing note for demos
+--------------------------
+This plain-text sample deliberately repeats core ideas in slightly different
+wording so that different questions can still retrieve overlapping evidence.
+That redundancy is useful while you debug 7.1 through 7.3. Later, replace this
+file with real lab notes, paper drafts, or meeting transcripts from your own
+research workflow.
