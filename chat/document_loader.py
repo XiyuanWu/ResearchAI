@@ -27,3 +27,36 @@ def load_document(path: str | Path) -> dict:
 
     # 4. return text + metadata(file name)
     return {"text": text, "source": file_path.name}
+
+# 7.2 Document Processing (split into chunks)
+def split_document(document: dict, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[dict]:
+    
+    # 1. condition check
+    if chunk_size <= 0: raise ValueError("Chunk size must be greater than 0")
+    if chunk_overlap < 0: raise ValueError("Chunk overlap can not be negative")
+    if chunk_overlap >= chunk_size: raise ValueError("Chunk overlap must smaller than chunk size")
+
+    # 2. extract document info
+    text = document["text"]
+    source = document["source"]
+    chunks = []
+
+    start = 0           # chunk start index
+    chunk_index = 0     # current chunk index
+
+    # 3. loop, cut text and add into chunk
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        chunk_text = text[start:end].strip()
+
+        if chunk_text:
+            chunks.append({
+                "text": chunk_text,
+                "source": source,
+                "chunk_index": chunk_index
+            })
+            chunk_index += 1
+
+        start += chunk_size - chunk_overlap
+
+    return chunks
