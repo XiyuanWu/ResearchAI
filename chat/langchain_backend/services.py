@@ -6,6 +6,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from chat.langchain_backend.tools import TOOLS
+from chat.langchain_backend.rag import get_retriever
 
 # 5.3 + 8.1 Prompting
 SYSTEM_PROMPT = """
@@ -16,7 +17,7 @@ If context is missing, ask a short clarifying question.
 Do not invent citations or sources.
 """.strip()
 
-# 8.2 Tools and Agents (langChain agents)
+# 8.3 RAG with LangChain (rag chain)
 def generate_response(message: str, previous_message: list | None = None) -> str:
 
     # 1. if key is missing, return error
@@ -48,16 +49,79 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         system_prompt=SYSTEM_PROMPT
     )
     
-    # invoke is run the loop
-    result = agent.invoke({
-        "messages": [*history, HumanMessage(content=message)]
-    })
-    final_message = result["messages"][-1]    # get last response/message
-    text = (final_message.text or "").strip()
-    if not text: raise ValueError("Empty response from model")
+    # 7. connect stored chunks and the user question
+    docs = get_retriever().invoke(message)
+    context = "\n\n".join(
+        f"Source: {doc.metadata.get('source', 'unknown')}\n{doc.page_content}"
+        for doc in docs
+    ) or "No relevant context found."
 
+    # combine chunk text and user question as rag message
+    rag_message = f"""
+    Use the retrieved context only if it is relevant.
+    If it is not relevant, answer normally and do not mention it.
+
+    RETRIEVED CONTEXT:
+    {context}
+
+    USER QUESTION:
+    {message}
+    """.strip()
+
+    # agent answer based on rag message and save to result
+    result = agent.invoke({
+        "messages": [*history, HumanMessage(content=rag_message)],
+    })
+
+    # final message that return to frontend, display to user
+    final_message = result["messages"][-1]
+    text = (final_message.text or "").strip()
+    if not text:
+        raise ValueError("Empty response from model")
     return text
 
+
+# # 8.2 Tools and Agents (langChain agents)
+# def generate_response(message: str, previous_message: list | None = None) -> str:
+
+#     # 1. if key is missing, return error
+#     if not settings.GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY is missing")
+
+#     # 2. treat empty history as an empty list to avoid errors
+#     previous_message = previous_message or []
+
+#     # 3. convert history into LangChain message
+#     # instead manually add model/user message before, we can just use AIMessage/HumanMessage to add directly
+#     history = []
+#     for msg in previous_message:
+#         role = msg["role"]
+#         content = msg["content"]
+#         if role == "assistant": history.append(AIMessage(content=content))
+#         else: history.append(HumanMessage(content=content))
+
+#     # 5. create Gemini chat and sent the full message list
+#     model = ChatGoogleGenerativeAI(
+#         model=settings.GEMINI_MODEL,
+#         google_api_key=settings.GEMINI_API_KEY
+#     )
+
+#     # 6. create a agent
+#     # create_agent combine models, tools, system prompts
+#     agent = create_agent(
+#         model=model,
+#         tools=TOOLS,
+#         system_prompt=SYSTEM_PROMPT
+#     )
+    
+#     # invoke is run the loop
+#     result = agent.invoke({
+#         "messages": [*history, HumanMessage(content=message)]
+#     })
+#     final_message = result["messages"][-1]    # get last response/message
+#     text = (final_message.text or "").strip()
+#     if not text: raise ValueError("Empty response from model")
+
+#     return text
 
 # # 8.1 LangChain Basics (chains)
 # def generate_response(message: str, previous_message: list | None = None) -> str:
