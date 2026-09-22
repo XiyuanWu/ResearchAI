@@ -95,3 +95,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
+GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+
+# 7.2 Vector Search (vector database)
+CHROMA_PATH = BASE_DIR / "chroma_data"
+
+# 7.4 File Upload & RAG Integration (backend upload handling)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2 MB

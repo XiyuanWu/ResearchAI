@@ -357,6 +357,241 @@ button {
   width: fit-content;
 }
 
+.msg-body.thinking {
+  padding: 12px 4px;
+}
+
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thinking-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: thinking-bounce 1.2s infinite ease-in-out;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinking-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 0.9;
+  }
+}
+
+.msg.user .msg-body.has-file {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.msg.user .msg-body.has-file .file-chip {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.msg-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Rendered Markdown (assistant messages) */
+.msg.assistant .msg-text {
+  white-space: normal;
+}
+
+.msg.assistant .msg-text > *:first-child {
+  margin-top: 0;
+}
+
+.msg.assistant .msg-text > *:last-child {
+  margin-bottom: 0;
+}
+
+.msg.assistant .msg-text p {
+  margin: 0 0 12px;
+}
+
+.msg.assistant .msg-text h1,
+.msg.assistant .msg-text h2,
+.msg.assistant .msg-text h3,
+.msg.assistant .msg-text h4 {
+  margin: 18px 0 8px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.msg.assistant .msg-text h1 {
+  font-size: 1.4em;
+}
+.msg.assistant .msg-text h2 {
+  font-size: 1.25em;
+}
+.msg.assistant .msg-text h3 {
+  font-size: 1.1em;
+}
+
+.msg.assistant .msg-text ul,
+.msg.assistant .msg-text ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.msg.assistant .msg-text li {
+  margin: 4px 0;
+}
+
+.msg.assistant .msg-text a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.msg.assistant .msg-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: #f1f1f2;
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.msg.assistant .msg-text pre {
+  background: #f6f6f7;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0 0 12px;
+}
+
+.msg.assistant .msg-text pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.msg.assistant .msg-text blockquote {
+  margin: 0 0 12px;
+  padding: 2px 14px;
+  border-left: 3px solid var(--line);
+  color: var(--muted, #6b7280);
+}
+
+.msg.assistant .msg-text table {
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 0.95em;
+}
+
+.msg.assistant .msg-text th,
+.msg.assistant .msg-text td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.msg.assistant .msg-text hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  position: relative;
+}
+
+.composer-files .file-chip {
+  width: fit-content;
+  max-width: 100%;
+  background: #f4f4f4;
+  border-radius: 12px;
+  padding: 8px 28px 8px 10px;
+}
+
+.file-chip-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.file-chip-remove:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.file-chip-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.file-chip-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.file-chip-meta {
+  min-width: 0;
+}
+
+.file-chip-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
+.file-chip-detail {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
 .composer-wrap {
   padding: 12px 16px 24px;
 }
@@ -372,6 +607,18 @@ button {
   border-radius: 24px;
   padding: 10px;
   background: var(--bg);
+}
+
+.composer-files {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 2px 4px;
+}
+
+.composer-files[hidden] {
+  display: none;
 }
 
 .composer:focus-within {
@@ -437,6 +684,60 @@ button#send:disabled {
 
 .backdrop {
   display: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal {
+  width: min(360px, 100%);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 20px 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.modal-message {
+  margin: 0 0 18px;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.modal-ok {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-ok:hover {
+  opacity: 0.92;
 }
 
 @media (max-width: 800px) {

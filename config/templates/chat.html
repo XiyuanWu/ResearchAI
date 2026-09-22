@@ -66,6 +66,13 @@
 
         <footer class="composer-wrap">
           <form class="composer" id="composer">
+            <input
+              type="file"
+              id="file-input"
+              accept=".txt,.md,text/plain,text/markdown"
+              hidden
+            />
+            <div class="composer-files" id="composer-files" hidden></div>
             <button type="button" class="upload-btn" id="upload-btn" aria-label="Upload file">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -90,7 +97,23 @@
       </div>
 
       <div class="backdrop" id="backdrop" hidden></div>
+
+      <div class="modal-backdrop" id="file-error-modal" hidden>
+        <div
+          class="modal"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="file-error-title"
+          aria-describedby="file-error-message"
+        >
+          <h2 class="modal-title" id="file-error-title">Unsupported file</h2>
+          <p class="modal-message" id="file-error-message">
+            Only .txt and .md files are allowed.
+          </p>
+          <button type="button" class="modal-ok" id="file-error-ok">OK</button>
+        </div>
+      </div>
     </div>
-    <script src="{% static 'js/chat.js' %}"></script>
+    <script type="module" src="{% static 'js/chat.js' %}"></script>
   </body>
 </html>
