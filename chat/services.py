@@ -5,7 +5,7 @@ from google.genai import types
 from chat.tools import TOOLS, get_current_time, calculate
 from chat.retrieval import retrieve_relevant_chunks
 
-# 6.3 Multiple Tools (let the model choose a tool)
+# 6.3 Multiple Tools (agent loop)
 TOOL_FUNCTIONS = {
     "get_current_time": get_current_time,
     "calculate": calculate,
