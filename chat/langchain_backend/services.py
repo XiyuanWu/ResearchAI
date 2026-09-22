@@ -1,5 +1,7 @@
 from django.conf import settings
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # 5.3 + 8.1 Prompting
@@ -11,7 +13,7 @@ If context is missing, ask a short clarifying question.
 Do not invent citations or sources.
 """.strip()
 
-# 8.1 LangChain Basics (models and prompts)
+# 8.1 LangChain Basics (chains)
 def generate_response(message: str, previous_message: list | None = None) -> str:
 
     # 1. if key is missing, return error
@@ -20,27 +22,68 @@ def generate_response(message: str, previous_message: list | None = None) -> str
     # 2. treat empty history as an empty list to avoid errors
     previous_message = previous_message or []
 
-    # 3. build langchain message
+    # 3. convert history into LangChain message
     # instead manually add model/user message before, we can just use AIMessage/HumanMessage to add directly
-    messages = [SystemMessage(content=SYSTEM_PROMPT)]
+    history = []
     for msg in previous_message:
         role = msg["role"]
         content = msg["content"]
-        if role == "assistant": messages.append(AIMessage(content=content))
-        else: messages.append(HumanMessage(content=content))
+        if role == "assistant": history.append(AIMessage(content=content))
+        else: history.append(HumanMessage(content=content))
 
-    # 4. add current user question
-    messages.append(HumanMessage(content=message))
+    # 4. prompt: system instruction/prompts + history + user current question
+    prompt = ChatPromptTemplate([
+        ("system", SYSTEM_PROMPT),
+        MessagesPlaceholder("history"),
+        ("human", "{message}")
+    ])
 
     # 5. create Gemini chat and sent the full message list
     model = ChatGoogleGenerativeAI(
         model=settings.GEMINI_MODEL,
         google_api_key=settings.GEMINI_API_KEY
     )
-    response = model.invoke(messages)
-
-    # 6. return the assistant text
-    text = (response.text or "").strip()
+    
+    # 6. chain: prompt -> model -> plain text
+    chain = prompt | model | StrOutputParser()
+    text = chain.invoke({
+        "history": history,
+        "message": message
+    }).strip()
     if not text: raise ValueError("Empty response from model")
 
     return text
+
+# # 8.1 LangChain Basics (models and prompts)
+# def generate_response(message: str, previous_message: list | None = None) -> str:
+
+#     # 1. if key is missing, return error
+#     if not settings.GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY is missing")
+
+#     # 2. treat empty history as an empty list to avoid errors
+#     previous_message = previous_message or []
+
+#     # 3. build langchain message
+#     # instead manually add model/user message before, we can just use AIMessage/HumanMessage to add directly
+#     messages = [SystemMessage(content=SYSTEM_PROMPT)]
+#     for msg in previous_message:
+#         role = msg["role"]
+#         content = msg["content"]
+#         if role == "assistant": messages.append(AIMessage(content=content))
+#         else: messages.append(HumanMessage(content=content))
+
+#     # 4. add current user question
+#     messages.append(HumanMessage(content=message))
+
+#     # 5. create Gemini chat and sent the full message list
+#     model = ChatGoogleGenerativeAI(
+#         model=settings.GEMINI_MODEL,
+#         google_api_key=settings.GEMINI_API_KEY
+#     )
+#     response = model.invoke(messages)
+
+#     # 6. return the assistant text
+#     text = (response.text or "").strip()
+#     if not text: raise ValueError("Empty response from model")
+
+#     return text
