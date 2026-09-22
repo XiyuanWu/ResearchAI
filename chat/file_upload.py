@@ -3,7 +3,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.files.storage import default_storage
 
-from .document_loader import ALLOWED_SUFFIXES
+from chat.manual_backend.document_loader import ALLOWED_SUFFIXES
 
 # 7.4 File Upload & RAG Integration (backend upload handling)
 def save_uploaded_file(uploaded_file) -> dict:
