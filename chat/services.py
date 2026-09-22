@@ -127,7 +127,7 @@ def generate_response(message: str, previous_message: list | None = None) -> str
 
         # return all tool results to Gemini
         contents.append(types.Content(
-            role="tool",
+            role="user",
             parts=tool_response_parts
         ))
 
