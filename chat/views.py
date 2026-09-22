@@ -2,33 +2,15 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.core.files.storage import default_storage
 import json
 
 # from config import settings
 from .services import generate_response
 from .models import Conversation, Message
 from .file_upload import save_uploaded_file
+from .ingestion import ingest_document
 
-
-# 7.4 File Upload & RAG Integration (backend upload handling)
-@csrf_exempt
-@require_POST
-def upload_api(request):
-    uploaded_file = request.FILES.get("file")
-    if not uploaded_file: return JsonResponse({"error": "File is missing"}, status=400)
-
-    try:
-        file_info = save_uploaded_file(uploaded_file)
-    except ValueError as exc:
-        return JsonResponse({"error": str(exc)}, status=400)
-
-    return JsonResponse({
-        "message": "File uploaded successfully",
-        "files": {
-            "name": file_info["original_name"],
-            "size": file_info["size"]
-        }
-    }, status=201)
 
 # 3.2 Backend
 def chat_page(request):
@@ -76,6 +58,66 @@ def chat_api(request):
 
     return JsonResponse({"message": reply, "conversation_id": conversation.id})
 
+
+# 7.4 File Upload & RAG Integration (automatic ingestion)
+@csrf_exempt
+@require_POST
+def upload_api(request):
+    uploaded_file = request.FILES.get("file")
+    if not uploaded_file: return JsonResponse({"error": "File is missing"}, status=400)
+
+    file_info = None
+
+    try:
+        # validate and save uploaded file
+        file_info = save_uploaded_file(uploaded_file)
+
+        # automatically run the RAG ingestion pipeline
+        ingestion_result = ingest_document(
+            file_path=file_info["absolute_path"],
+            original_name=file_info["original_name"]
+        )
+    except ValueError as exc:   # handling expected input/data issues 
+        # remove saved file if ingestion failed
+        if file_info:
+            default_storage.delete(file_info["stored_name"])
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    except Exception as exc:   # handling other unexpected errors
+        if file_info:
+            default_storage.delete(file_info["stored_name"])
+        return JsonResponse({"error": str(exc)}, status=500)
+
+    return JsonResponse({
+        "message": "File uploaded and indexed successfully",
+        "files": {
+            "name": file_info["original_name"],
+            "size": file_info["size"],
+            "chunks": ingestion_result["stored_count"]
+        }
+    }, status=201)
+
+
+
+# # 7.4 File Upload & RAG Integration (backend upload handling)
+# @csrf_exempt
+# @require_POST
+# def upload_api(request):
+#     uploaded_file = request.FILES.get("file")
+#     if not uploaded_file: return JsonResponse({"error": "File is missing"}, status=400)
+
+#     try:
+#         file_info = save_uploaded_file(uploaded_file)
+#     except ValueError as exc:
+#         return JsonResponse({"error": str(exc)}, status=400)
+
+#     return JsonResponse({
+#         "message": "File uploaded successfully",
+#         "files": {
+#             "name": file_info["original_name"],
+#             "size": file_info["size"]
+#         }
+#     }, status=201)
 
 # # 5.1 Chat Storage (save chat history)
 # @csrf_exempt
