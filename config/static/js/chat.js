@@ -1,7 +1,13 @@
 // 3.1 Frontend
 
-const STORAGE_KEY = "researchai.chats.v2";
-const DEFAULT_TITLE = "ResearchAI";
+import {
+  DEFAULT_TITLE,
+  createChat,
+  getState,
+  saveState,
+  activeChat,
+} from "./state.js";
+import { uploadFile, sendChatMessage } from "./api.js";
 
 const form = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
@@ -27,65 +33,10 @@ const selectDeleteBtn = document.getElementById("select-delete");
 
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([".txt", ".md"]);
 
-let state = loadState();
+const state = getState();
 let selectMode = false;
 const selectedIds = new Set();
 let pendingFile = null;
-
-function uid() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createChat(title = DEFAULT_TITLE) {
-  return {
-    id: uid(),
-    conversationId: null, // backend Conversation.id
-    title,
-    updatedAt: Date.now(),
-    messages: [],
-  };
-}
-
-function normalizeState(parsed) {
-  const chats = (parsed.chats || []).map((chat) => ({
-    ...chat,
-    conversationId: chat.conversationId ?? null,
-    title:
-      !chat.title || chat.title === "New chat" ? DEFAULT_TITLE : chat.title,
-  }));
-  if (!chats.length) {
-    const chat = createChat();
-    return { activeId: chat.id, chats: [chat] };
-  }
-  const activeId = chats.some((c) => c.id === parsed.activeId)
-    ? parsed.activeId
-    : chats[0].id;
-  return { activeId, chats };
-}
-
-function loadState() {
-  try {
-    const raw =
-      localStorage.getItem(STORAGE_KEY) ||
-      localStorage.getItem("researchai.chats.v1");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.chats?.length) return normalizeState(parsed);
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  const chat = createChat();
-  return { activeId: chat.id, chats: [chat] };
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function activeChat() {
-  return state.chats.find((c) => c.id === state.activeId) || state.chats[0];
-}
 
 function autosize() {
   promptEl.style.height = "auto";
@@ -453,6 +404,7 @@ function appendUploadedFile(file) {
   const ext = fileExtension(file.name).replace(".", "").toUpperCase() || "FILE";
   const size = formatFileSize(file.size);
   pendingFile = {
+    file,
     name: file.name,
     label: size ? `${ext} · ${size}` : ext,
   };
@@ -463,6 +415,65 @@ function appendUploadedFile(file) {
 function clearPendingFile() {
   pendingFile = null;
   renderComposerFile();
+}
+
+let thinkingRow = null;
+let typingTimer = null;
+
+function showThinking() {
+  removeThinking();
+  emptyState.hidden = true;
+  messagesEl.hidden = false;
+
+  const row = document.createElement("article");
+  row.className = "msg assistant";
+
+  const body = document.createElement("div");
+  body.className = "msg-body thinking";
+  body.innerHTML = `
+    <span class="thinking-dots" role="status" aria-label="Thinking">
+      <span></span><span></span><span></span>
+    </span>
+  `;
+
+  row.appendChild(body);
+  messagesEl.appendChild(row);
+  thinkingRow = row;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function removeThinking() {
+  if (thinkingRow) {
+    thinkingRow.remove();
+    thinkingRow = null;
+  }
+}
+
+function animateLastAssistantMessage(fullText) {
+  if (typingTimer) {
+    clearInterval(typingTimer);
+    typingTimer = null;
+  }
+
+  const rows = messagesEl.querySelectorAll(".msg.assistant");
+  const lastRow = rows[rows.length - 1];
+  const textEl = lastRow?.querySelector(".msg-text");
+  if (!textEl) return;
+
+  const step = Math.max(1, Math.round(fullText.length / 160));
+  let shown = 0;
+  textEl.textContent = "";
+
+  typingTimer = setInterval(() => {
+    shown += step;
+    textEl.textContent = fullText.slice(0, shown);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (shown >= fullText.length) {
+      textEl.textContent = fullText;
+      clearInterval(typingTimer);
+      typingTimer = null;
+    }
+  }, 16);
 }
 
 function renderComposerFile() {
@@ -484,35 +495,42 @@ function renderComposerFile() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const text = promptEl.value.trim();
-  const file = pendingFile;
-  if (!text && !file) return;
+  const attachment = pendingFile;
+  if (!text && !attachment) return;
 
   const chat = activeChat();
-  appendMessage("user", text, file
-    ? { attachment: { fileName: file.name, fileLabel: file.label } }
-    : {});
-  promptEl.value = "";
-  autosize();
-  clearPendingFile();
-
-  if (!text) {
-    promptEl.focus();
-    return;
-  }
-
   sendBtn.disabled = true;
+  let uploadComplete = !attachment;
 
   try {
-    const res = await fetch("/chat/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: text,
-        conversation_id: chat.conversationId,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
+    if (attachment) {
+      const { ok, data } = await uploadFile(attachment.file);
+      if (!ok) {
+        showFileError(data.error || "File upload failed.");
+        return;
+      }
+      uploadComplete = true;
+    }
+
+    appendMessage("user", text, attachment
+      ? {
+          attachment: {
+            fileName: attachment.name,
+            fileLabel: attachment.label,
+          },
+        }
+      : {});
+    promptEl.value = "";
+    autosize();
+    clearPendingFile();
+
+    if (!text) return;
+
+    showThinking();
+
+    const { ok, data } = await sendChatMessage(text, chat.conversationId);
+    removeThinking();
+    if (!ok) {
       appendMessage("assistant", data.error || "Request failed.");
       return;
     }
@@ -520,9 +538,16 @@ form.addEventListener("submit", async (event) => {
       chat.conversationId = data.conversation_id;
       saveState();
     }
-    appendMessage("assistant", data.message || "No reply.");
-  } catch (_) {
-    appendMessage("assistant", "Request failed.");
+    const reply = data.message || "No reply.";
+    appendMessage("assistant", reply);
+    animateLastAssistantMessage(reply);
+  } catch (error) {
+    removeThinking();
+    if (!uploadComplete) {
+      showFileError(error.message || "File upload failed.");
+    } else {
+      appendMessage("assistant", "Request failed.");
+    }
   } finally {
     sendBtn.disabled = false;
     promptEl.focus();
