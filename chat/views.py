@@ -7,6 +7,28 @@ import json
 # from config import settings
 from .services import generate_response
 from .models import Conversation, Message
+from .file_upload import save_uploaded_file
+
+
+# 7.4 File Upload & RAG Integration (backend upload handling)
+@csrf_exempt
+@require_POST
+def upload_api(request):
+    uploaded_file = request.FILES.get("file")
+    if not uploaded_file: return JsonResponse({"error": "File is missing"}, status=400)
+
+    try:
+        file_info = save_uploaded_file(uploaded_file)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    return JsonResponse({
+        "message": "File uploaded successfully",
+        "files": {
+            "name": file_info["original_name"],
+            "size": file_info["size"]
+        }
+    }, status=201)
 
 # 3.2 Backend
 def chat_page(request):

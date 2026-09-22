@@ -99,3 +99,8 @@ GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-0
 
 # 7.2 Vector Search (vector database)
 CHROMA_PATH = BASE_DIR / "chroma_data"
+
+# 7.4 File Upload & RAG Integration (backend upload handling)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2 MB
