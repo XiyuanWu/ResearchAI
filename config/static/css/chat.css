@@ -625,6 +625,11 @@ button {
   border-color: #cfcfcf;
 }
 
+.composer.drag-over {
+  border-color: #111;
+  background: #f7f7f7;
+}
+
 .upload-btn {
   width: 34px;
   height: 34px;

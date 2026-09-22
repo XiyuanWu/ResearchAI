@@ -588,9 +588,7 @@ uploadBtn.addEventListener("click", () => {
   fileInput.click();
 });
 
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  fileInput.value = "";
+function acceptSelectedFile(file) {
   if (!file) return;
 
   const ext = fileExtension(file.name);
@@ -600,6 +598,44 @@ fileInput.addEventListener("change", () => {
   }
 
   appendUploadedFile(file);
+}
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files?.[0];
+  fileInput.value = "";
+  acceptSelectedFile(file);
+});
+
+function isFileDrag(event) {
+  return [...(event.dataTransfer?.types || [])].includes("Files");
+}
+
+["dragenter", "dragover"].forEach((eventName) => {
+  form.addEventListener(eventName, (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    form.classList.add("drag-over");
+  });
+});
+
+form.addEventListener("dragleave", (event) => {
+  if (form.contains(event.relatedTarget)) return;
+  form.classList.remove("drag-over");
+});
+
+form.addEventListener("drop", (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  form.classList.remove("drag-over");
+  acceptSelectedFile(event.dataTransfer.files?.[0]);
+});
+
+document.addEventListener("dragover", (event) => {
+  if (isFileDrag(event)) event.preventDefault();
+});
+
+document.addEventListener("drop", (event) => {
+  if (isFileDrag(event)) event.preventDefault();
 });
 
 fileErrorOk.addEventListener("click", hideFileError);
