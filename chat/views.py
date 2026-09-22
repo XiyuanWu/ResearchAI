@@ -10,7 +10,8 @@ import json
 from chat.langchain_backend.services import generate_response
 from .models import Conversation, Message
 from .file_upload import save_uploaded_file
-from chat.manual_backend.ingestion import ingest_document
+# from chat.manual_backend.ingestion import ingest_document
+from chat.langchain_backend.ingestion import ingest_document
 
 
 # 3.2 Backend
