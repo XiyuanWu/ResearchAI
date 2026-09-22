@@ -2,8 +2,8 @@ from django.conf import settings
 from google import genai
 from google.genai import types
 
-from chat.tools import TOOLS, get_current_time, calculate
-from chat.retrieval import retrieve_relevant_chunks
+from chat.manual_backend.tools import TOOLS, get_current_time, calculate
+from chat.manual_backend.retrieval import retrieve_relevant_chunks
 
 # 6.3 Multiple Tools (agent loop)
 TOOL_FUNCTIONS = {

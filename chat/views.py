@@ -6,10 +6,10 @@ from django.core.files.storage import default_storage
 import json
 
 # from config import settings
-from .services import generate_response
+from chat.manual_backend.services import generate_response
 from .models import Conversation, Message
 from .file_upload import save_uploaded_file
-from .ingestion import ingest_document
+from chat.manual_backend.ingestion import ingest_document
 
 
 # 3.2 Backend
