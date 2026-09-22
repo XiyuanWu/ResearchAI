@@ -2,8 +2,16 @@ from django.conf import settings
 from google import genai
 from google.genai import types
 
-from chat.tools import TOOLS, get_current_time
+from chat.tools import TOOLS, get_current_time, calculate
 from chat.retrieval import retrieve_relevant_chunks
+
+# 6.3 Multiple Tools (agent loop)
+TOOL_FUNCTIONS = {
+    "get_current_time": get_current_time,
+    "calculate": calculate,
+}
+
+MAX_TOOL_ROUNDS = 5
 
 # 5.3 Prompting
 SYSTEM_PROMPT = """
@@ -23,7 +31,7 @@ def build_rag_message(message: str, top_k: int = 3) -> str:
     context_parts = []
     for number, chunk in enumerate(relevant_chunks, start=1):
         metadata = chunk["metadata"]
-        source = metadata.get("chunk_index", "unknown")
+        source = metadata.get("source", "unknown")
         chunk_index = metadata.get("chunk_index", "unknown")
 
         context_parts.append(
@@ -45,12 +53,11 @@ def build_rag_message(message: str, top_k: int = 3) -> str:
         {message}
         """.strip()
 
-# 6.2 Tool Execution (return tool result to model)
+# 6.3 Multiple Tools (agent loop)
 def generate_response(message: str, previous_message: list | None = None) -> str:
 
     # 1. if key not exists, return error
-    if not settings.GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is missing")
+    if not settings.GEMINI_API_KEY: raise ValueError("GEMINI_API_KEY is missing")
 
     # 2. treat empty history as an empty list to avoid errors
     previous_message = previous_message or []
@@ -65,13 +72,14 @@ def generate_response(message: str, previous_message: list | None = None) -> str
             "parts": [{"text": msg["content"]}]
         })
 
+    # 4. add the current user message with optional RAG context
     rag_message = build_rag_message(message)
     contents.append({
         "role": "user",
         "parts": [{"text": rag_message}]
     })
 
-    # 4.1 first api call - model return text OR a function call
+    # 5. config Gemini and available tools
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         tools=TOOLS,
@@ -79,47 +87,128 @@ def generate_response(message: str, previous_message: list | None = None) -> str
     ) 
         
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model = settings.GEMINI_MODEL,
-        contents = contents,
-        config = config
-    )
 
-    # 4.2. if no tool needed, normal answer
-    if not response.function_calls:
-        text = (response.text or "").strip()
-        if not text:
-            raise ValueError("Empty response from model")
-        return text
+    # 6. agent loop
+    total_rounds = 0     # start with 0 rounds
 
-    # 5.1 otherwise run the tool
-    fc = response.function_calls[0]
-    if fc.name == "get_current_time":
-        tool_result = get_current_time()
-    else:
-        tool_result = f"Unknown tool: {fc.name}"
+    while True:
+        response = client.models.generate_content(
+            model = settings.GEMINI_MODEL,
+            contents = contents,
+            config = config
+        )
 
-    # 5.2. append the tool result to contents
-    contents.append(response.candidates[0].content)
-    contents.append(types.Content(
-        role="user",
-        parts = [
-            types.Part.from_function_response(name=fc.name, response={"result": tool_result})
-        ]
-    ))
+        # the model has finished and returned a normal answer
+        if not response.function_calls:
+            text = (response.text or "").strip()
+            if not text: raise ValueError("Empty response from model")
+            return text  # once model stop request tool, return answer
 
-    # 6. second api call - give back contents to model and model write as natural language answer
-    final = client.models.generate_content(
-        model=settings.GEMINI_MODEL,
-        contents=contents,
-        config=config,
-    )
+        # prevent infinite tool calling loop
+        if total_rounds >= MAX_TOOL_ROUNDS: raise ValueError("Agent exceeded maximum tool rounds")
+        total_rounds += 1
 
-    text = (final.text or "").strip()
-    if not text: 
-        raise ValueError("Empty response from model")
+        # save the model's tool call request
+        contents.append(response.candidates[0].content)
 
-    return text
+        # run every tool requested in this round
+        tool_response_parts = []
+        for fc in response.function_calls:
+            tool_function = TOOL_FUNCTIONS.get(fc.name)
+            if tool_function is None: raise ValueError(f"Unknown tool: {fc.name}")
+
+            tool_args = dict(fc.args or {})
+            tool_result = tool_function(**tool_args)
+
+            tool_response_parts.append(types.Part.from_function_response(
+                name=fc.name,
+                response={"result": tool_result}
+            ))
+
+        # return all tool results to Gemini
+        contents.append(types.Content(
+            role="tool",
+            parts=tool_response_parts
+        ))
+
+        # no second call needed
+
+
+# # 6.2 Tool Execution (return tool result to model)
+# def generate_response(message: str, previous_message: list | None = None) -> str:
+
+#     # 1. if key not exists, return error
+#     if not settings.GEMINI_API_KEY:
+#         raise ValueError("GEMINI_API_KEY is missing")
+
+#     # 2. treat empty history as an empty list to avoid errors
+#     previous_message = previous_message or []
+
+#     # 3. build contents for model and user message
+#     contents = []
+#     for msg in previous_message:
+#         role = msg["role"]
+#         if role == "assistant": role = "model"
+#         contents.append({
+#             "role": role,
+#             "parts": [{"text": msg["content"]}]
+#         })
+
+#     rag_message = build_rag_message(message)
+#     contents.append({
+#         "role": "user",
+#         "parts": [{"text": rag_message}]
+#     })
+
+#     # 4.1 first api call - model return text OR a function call
+#     config = types.GenerateContentConfig(
+#         system_instruction=SYSTEM_PROMPT,
+#         tools=TOOLS,
+#         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+#     ) 
+        
+#     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+#     response = client.models.generate_content(
+#         model = settings.GEMINI_MODEL,
+#         contents = contents,
+#         config = config
+#     )
+
+#     # 4.2. if no tool needed, normal answer
+#     if not response.function_calls:
+#         text = (response.text or "").strip()
+#         if not text:
+#             raise ValueError("Empty response from model")
+#         return text
+
+#     # 5.1 otherwise run the tool
+#     fc = response.function_calls[0]
+#     if fc.name == "get_current_time":
+#         tool_result = get_current_time()
+#     else:
+#         tool_result = f"Unknown tool: {fc.name}"
+
+#     # 5.2. append the tool result to contents
+#     contents.append(response.candidates[0].content)
+#     contents.append(types.Content(
+#         role="user",
+#         parts = [
+#             types.Part.from_function_response(name=fc.name, response={"result": tool_result})
+#         ]
+#     ))
+
+#     # 6. second api call - give back contents to model and model write as natural language answer
+#     final = client.models.generate_content(
+#         model=settings.GEMINI_MODEL,
+#         contents=contents,
+#         config=config,
+#     )
+
+#     text = (final.text or "").strip()
+#     if not text: 
+#         raise ValueError("Empty response from model")
+
+#     return text
 
 
 # # 5.2 Conversation Memory (add conversation context)
