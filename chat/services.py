@@ -36,8 +36,8 @@ def build_rag_message(message: str, top_k: int = 3) -> str:
     context = "\n\n".join(context_parts)
 
     return f"""
-        Use the retrieved context below when it is relevant to the question.
-        If the context does not contain the answer, clearly say so.
+        Use the retrieved context below ONLY if it is relevant to the question.
+        If it is not relevant, just answer normally and do NOT mention the context.
         Do not invent information or sources.
         RETRIEVED CONTEXT:
         {context}

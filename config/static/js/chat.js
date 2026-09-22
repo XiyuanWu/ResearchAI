@@ -8,6 +8,7 @@ import {
   activeChat,
 } from "./state.js";
 import { uploadFile, sendChatMessage } from "./api.js";
+import { renderMarkdown } from "./markdown.js";
 
 const form = document.getElementById("composer");
 const promptEl = document.getElementById("prompt");
@@ -186,7 +187,11 @@ function renderMessages() {
     if (message.content && message.kind !== "file") {
       const text = document.createElement("div");
       text.className = "msg-text";
-      text.textContent = message.content;
+      if (message.role === "assistant") {
+        text.innerHTML = renderMarkdown(message.content);
+      } else {
+        text.textContent = message.content;
+      }
       body.appendChild(text);
     }
 
@@ -469,7 +474,7 @@ function animateLastAssistantMessage(fullText) {
     textEl.textContent = fullText.slice(0, shown);
     chatEl.scrollTop = chatEl.scrollHeight;
     if (shown >= fullText.length) {
-      textEl.textContent = fullText;
+      textEl.innerHTML = renderMarkdown(fullText);
       clearInterval(typingTimer);
       typingTimer = null;
     }

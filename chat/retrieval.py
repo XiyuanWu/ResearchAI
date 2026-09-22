@@ -2,6 +2,8 @@ from .embeddings import embed_query
 from .vector_store import get_collection
 
 # 7.3 Retrieval & Answering (retrieve relevant chunks)
+DISTANCE_THRESHOLD = 0.5
+
 # retrieve the most relevant document chunks for a query
 def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
     query = query.strip()
@@ -28,6 +30,10 @@ def retrieve_relevant_chunks(query: str, top_k: int = 3) -> list[dict]:
     # 0 mean only read first question
     relevant_chunks = []
     for index in range(len(results["ids"][0])): 
+        # distance is for when a user question don't need a file, model response will not include about file
+        distance = results["distances"][0][index]
+        if distance > DISTANCE_THRESHOLD:
+            continue
         relevant_chunks.append({
             "id": results["ids"][0][index],
             "text": results["documents"][0][index],
