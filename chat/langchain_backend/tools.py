@@ -7,11 +7,16 @@ from langchain_core.tools import tool
 # we use @tool so we don't need write FunctionDeclaration manually
 @tool
 def get_current_time() -> str:
+    """Get the current Pacific time. Use this when the user asks for the current time."""
     now = datetime.now(ZoneInfo("America/Los_Angeles"))
     return now.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 @tool
 def calculate(a: float, b: float, operation: str) -> float:
+    """
+    Add, subtract, multiply, or divide two numbers.
+    operation must be add, subtract, multiply, or divide.
+    """
     if operation == "add":
         return a + b
     if operation == "subtract":
