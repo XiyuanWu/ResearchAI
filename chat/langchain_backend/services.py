@@ -3,12 +3,12 @@ from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage
 # from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langgraph.graph import START, StateGraph
+from langgraph.graph import START, END, StateGraph
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from chat.langchain_backend.tools import TOOLS
 from chat.langchain_backend.rag import get_retriever
-from chat.langchain_backend.nodes import GraphState, model_node, retrieve_node
+from chat.langchain_backend.nodes import GraphState, model_node, retrieve_node, tool_node
 
 # 5.3 + 8.1 Prompting
 SYSTEM_PROMPT = """
@@ -82,12 +82,27 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         raise ValueError("Empty response from model")
     return text
 
-# 9.1 Graph Basics (edges)
+# 9.2 Agent Workflow (branching)
+def route_after_model(state: GraphState) -> str:
+    last = state["messages"][-1]
+    if last.tool_calls: return "tools"
+    return END
+
 graph = StateGraph(GraphState)
 graph.add_node("retrieve", retrieve_node)
 graph.add_node("model", model_node)
+graph.add_node("tools", tool_node)
 graph.add_edge(START, "retrieve")
 graph.add_edge("retrieve", "model")
+graph.add_conditional_edges("model", route_after_model)
+
+
+# # 9.1 Graph Basics (edges)
+# graph = StateGraph(GraphState)
+# graph.add_node("retrieve", retrieve_node)
+# graph.add_node("model", model_node)
+# graph.add_edge(START, "retrieve")
+# graph.add_edge("retrieve", "model")
 
 # # 8.2 Tools and Agents (langChain agents)
 # def generate_response(message: str, previous_message: list | None = None) -> str:
