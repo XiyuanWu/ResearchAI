@@ -95,6 +95,7 @@ graph.add_node("tools", tool_node)
 graph.add_edge(START, "retrieve")
 graph.add_edge("retrieve", "model")
 graph.add_conditional_edges("model", route_after_model)
+graph.add_edge("tools", "model")
 
 
 # # 9.1 Graph Basics (edges)

@@ -1,4 +1,5 @@
 from django.conf import settings
+from langchain_core.messages import ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Annotated, TypedDict
 from langgraph.graph.message import add_messages
@@ -14,7 +15,7 @@ class GraphState(TypedDict, total=False):
     tool_results: list
 
 # 9.1 Graph Basics (nodes)
-# 9.3 Graph Basics (state)
+# 9.1 Graph Basics (state)
 # update all function header from (state: dict) to (state: GraphState)
 
 # search chroma and return relevant chunk text
@@ -36,18 +37,39 @@ def model_node(state: GraphState) -> dict:
     response = model.bind_tools(TOOLS).invoke(state["messages"])
     return {"messages": [response]}
 
+# 9.2 Agent Workflow (loops)
 # run every tool requested by latest model response (vs create_agent in langchain)
 def tool_node(state: GraphState) -> dict:
     tool_calls = state["messages"][-1].tool_calls
     tool_map = {tool.name: tool for tool in TOOLS}
     
+    # pass tool message to result and give result to model
     results = []
     for call in tool_calls:
         tool = tool_map[call["name"]]
         result = tool.invoke(call["args"])
-        results.append({
-            "name": call["name"],
-            "result": result
-        })
+        results.append(ToolMessage(
+            content=str(result),
+            tool_call_id=call["id"],
+            name=call["name"]
+        ))
 
-    return {"tool_results": results}
+    return {"messages": results}
+
+
+# # 9.1 Graph Basics (nodes)
+# # run every tool requested by latest model response (vs create_agent in langchain)
+# def tool_node(state: GraphState) -> dict:
+#     tool_calls = state["messages"][-1].tool_calls
+#     tool_map = {tool.name: tool for tool in TOOLS}
+    
+#     results = []
+#     for call in tool_calls:
+#         tool = tool_map[call["name"]]
+#         result = tool.invoke(call["args"])
+#         results.append({
+#             "name": call["name"],
+#             "result": result
+#         })
+
+#     return {"tool_results": results}
