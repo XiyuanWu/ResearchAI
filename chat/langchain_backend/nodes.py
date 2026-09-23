@@ -1,5 +1,5 @@
 from django.conf import settings
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Annotated, TypedDict
 from langgraph.graph.message import add_messages
@@ -15,20 +15,43 @@ class GraphState(TypedDict, total=False):
     tool_results: list
     tool_rounds: int     # 9.2 Agent Workflow (stop conditions)
 
-# 9.1 Graph Basics (nodes)
-# 9.1 Graph Basics (state)
-# update all function header from (state: dict) to (state: GraphState)
-
-# search chroma and return relevant chunk text
+# 9.3 LangGraph Chains
 def retrieve_node(state: GraphState) -> dict:
     docs = get_retriever().invoke(state["question"])
     context = "\n\n".join(
-    f"Source: {doc.metadata.get('source', 'unknown')}\n{doc.page_content}"
-    for doc in docs
+        f"Source: {doc.metadata.get('source', 'unknown')}\n{doc.page_content}"
+        for doc in docs
     ) or "No relevant context found."
+    rag_message = f"""
+        Use the retrieved context only if it is relevant.
+        If it is not relevant, answer normally and do not mention it.
+        RETRIEVED CONTEXT:
+        {context}
+        USER QUESTION:
+        {state["question"]}
+        """.strip()
+        
+    return {
+        "context": context,
+        "messages": [HumanMessage(content=rag_message)],
+    }
 
-    return {"context": context}
 
+# # 9.1 Graph Basics (nodes)
+# # 9.1 Graph Basics (state)
+# # update all function header from (state: dict) to (state: GraphState)
+
+# # search chroma and return relevant chunk text
+# def retrieve_node(state: GraphState) -> dict:
+#     docs = get_retriever().invoke(state["question"])
+#     context = "\n\n".join(
+#     f"Source: {doc.metadata.get('source', 'unknown')}\n{doc.page_content}"
+#     for doc in docs
+#     ) or "No relevant context found."
+
+#     return {"context": context}
+
+# 9.1 Graph Basics (nodes)
 # ask gemini for next answer or tool call
 def model_node(state: GraphState) -> dict:
     model = ChatGoogleGenerativeAI(
