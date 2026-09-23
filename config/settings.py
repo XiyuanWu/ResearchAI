@@ -18,11 +18,27 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
 
+# Local defaults + Railway public domain (set automatically by Railway).
+_default_hosts = "localhost,127.0.0.1,.up.railway.app"
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", _default_hosts).split(",")
     if host.strip()
 ]
+_railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
+
+_csrf_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in _csrf_origins.split(",")
+    if origin.strip()
+]
+if _railway_domain:
+    _https_origin = f"https://{_railway_domain}"
+    if _https_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_https_origin)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
