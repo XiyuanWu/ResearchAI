@@ -82,11 +82,21 @@ def generate_response(message: str, previous_message: list | None = None) -> str
         raise ValueError("Empty response from model")
     return text
 
-# 9.2 Agent Workflow (branching)
+# 9.2 Agent Workflow (stop condition)
+MAX_TOOL_ROUNDS = 5
+
 def route_after_model(state: GraphState) -> str:
     last = state["messages"][-1]
-    if last.tool_calls: return "tools"
-    return END
+    if not last.tool_calls: return END
+    if state.get("tool_rounds", 0) >= MAX_TOOL_ROUNDS:
+        raise ValueError("Agent exceeded maximum tool rounds")
+    return "tools"
+
+# # 9.2 Agent Workflow (branching)
+# def route_after_model(state: GraphState) -> str:
+#     last = state["messages"][-1]
+#     if last.tool_calls: return "tools"
+#     return END
 
 graph = StateGraph(GraphState)
 graph.add_node("retrieve", retrieve_node)

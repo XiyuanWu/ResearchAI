@@ -13,6 +13,7 @@ class GraphState(TypedDict, total=False):
     context: str
     messages: Annotated[list, add_messages]
     tool_results: list
+    tool_rounds: int     # 9.2 Agent Workflow (stop conditions)
 
 # 9.1 Graph Basics (nodes)
 # 9.1 Graph Basics (state)
@@ -54,7 +55,7 @@ def tool_node(state: GraphState) -> dict:
             name=call["name"]
         ))
 
-    return {"messages": results}
+    return {"messages": results, "tool_rounds": state.get("tool_rounds", 0) + 1}
 
 
 # # 9.1 Graph Basics (nodes)
