@@ -8,7 +8,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from chat.langchain_backend.tools import TOOLS
 from chat.langchain_backend.rag import get_retriever
-from chat.langchain_backend.nodes import model_node, retrieve_node
+from chat.langchain_backend.nodes import GraphState, model_node, retrieve_node
 
 # 5.3 + 8.1 Prompting
 SYSTEM_PROMPT = """
@@ -83,7 +83,7 @@ def generate_response(message: str, previous_message: list | None = None) -> str
     return text
 
 # 9.1 Graph Basics (edges)
-graph = StateGraph(dict)
+graph = StateGraph(GraphState)
 graph.add_node("retrieve", retrieve_node)
 graph.add_node("model", model_node)
 graph.add_edge(START, "retrieve")
